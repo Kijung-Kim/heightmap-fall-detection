@@ -1,0 +1,6 @@
+{
+  "description": "RFDS preset used for the paper experiments.",
+  "dataset_name": "rfds",
+  "root_dir": "./datasets/rfds"
+}
+

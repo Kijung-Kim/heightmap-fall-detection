@@ -1,0 +1,6 @@
+{
+  "description": "Le2i preset used for the paper experiments.",
+  "dataset_name": "le2i",
+  "root_dir": "./datasets/le2i"
+}
+

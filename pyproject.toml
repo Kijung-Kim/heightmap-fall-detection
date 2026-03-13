@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heightmap-fall-detection"
+version = "0.1.0"
+description = "Height-map based fall detection extracted from Grounded-SAM-2 experiments."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy==1.26.4",
+  "opencv-python==4.9.0.80",
+  "pillow==11.3.0",
+  "scikit-learn",
+  "supervision==0.26.1",
+  "torch",
+  "tqdm==4.67.1",
+  "transformers==4.56.2"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

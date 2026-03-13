@@ -1,0 +1,9 @@
+numpy==1.26.4
+opencv-python==4.9.0.80
+pillow==11.3.0
+scikit-learn
+supervision==0.26.1
+torch
+tqdm==4.67.1
+transformers==4.56.2
+

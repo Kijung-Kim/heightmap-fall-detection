@@ -1,0 +1,6 @@
+{
+  "description": "UR Fall Detection preset used for the paper experiments.",
+  "dataset_name": "urfd",
+  "root_dir": "./datasets/urfd"
+}
+
