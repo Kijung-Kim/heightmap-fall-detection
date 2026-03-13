@@ -1,62 +1,174 @@
 # Height-Map Fall Detection
 
-This repository extracts the paper-specific contribution from a heavily modified `Grounded-SAM-2` workspace: generating per-person height maps from RGB videos and training a weakly supervised fall detector on those height-map sequences.
+This repository contains the paper-specific code for generating per-person relative height maps from RGB videos and training a weakly supervised fall detector on those height-map sequences.
 
-The code is organized as an extension layer on top of existing upstream projects instead of republishing third-party source code:
+![Framework Overview](assets/Figure_02.png)
 
-- `Grounded-SAM-2` for grounding, segmentation, and tracking
+The implementation is built around two upstream dependencies:
+
+- `Grounded-SAM-2` for floor detection, segmentation, and person tracking
 - `ml-depth-pro` for monocular depth estimation
 
-## Repository layout
+## Quick Start
+
+The shortest setup path is:
+
+```bash
+git clone https://github.com/Kijung-Kim/heightmap-fall-detection.git
+cd heightmap-fall-detection
+bash setup.sh
+```
+
+After that, prepare:
+
+1. A local `Grounded-SAM-2` checkout
+2. A local `ml-depth-pro` checkout
+3. The required checkpoints
+4. Your fall / non-fall RGB videos
+
+Then check the available commands:
+
+```bash
+python scripts/generate_heightmaps.py --help
+python scripts/train.py --help
+```
+
+## Repository Layout
 
 ```text
 heightmap-fall-detection/
+├── assets/
+│   └── Figure_02.png
 ├── configs/
 ├── scripts/
 │   ├── generate_heightmaps.py
 │   └── train.py
-└── src/heightmap_fall_detection/
-    ├── configs.py
-    ├── data.py
-    ├── losses.py
-    ├── metrics.py
-    ├── model.py
-    ├── preprocessing.py
-    └── train.py
+├── src/heightmap_fall_detection/
+│   ├── configs.py
+│   ├── data.py
+│   ├── losses.py
+│   ├── metrics.py
+│   ├── model.py
+│   ├── preprocessing.py
+│   └── train.py
+├── pyproject.toml
+├── requirements.txt
+└── setup.sh
 ```
 
-## What is included
+## What This Repository Includes
 
-- Height-map generation pipeline with floor-plane estimation
-- Per-track `64x64` height-map export
-- Transformer-based fall detector for video-level supervision
+- Relative height-map generation from RGB videos
+- Floor-plane estimation and person-wise crop export
+- Per-track `64x64` height-map sequences
+- Weakly supervised Transformer-based fall inference
 - RFDS, URFD, and Le2i training presets
 
-## What is intentionally excluded
+## What This Repository Does Not Include
 
-- Large datasets
+- Large raw datasets
 - Model checkpoints
-- Paper figures and previews
-- The full upstream `Grounded-SAM-2` codebase
+- Full upstream `Grounded-SAM-2` source code
+- Full upstream `ml-depth-pro` source code
 
-## Environment
+## Installation
 
-Install this repository's Python dependencies first:
+### Option 1: Recommended setup script
+
+Run:
 
 ```bash
-pip install -r requirements.txt
+bash setup.sh
 ```
 
-You also need local checkouts of:
+This script:
+
+- creates `.venv`
+- upgrades `pip`
+- installs this repository in editable mode
+- can optionally clone external repositories
+- prints the remaining manual setup steps
+
+To see optional flags:
+
+```bash
+bash setup.sh --help
+```
+
+### Option 2: Manual environment setup
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -e .
+```
+
+## External Dependencies
+
+The preprocessing pipeline requires local checkouts of:
 
 - `Grounded-SAM-2`
 - `ml-depth-pro`
 
-The preprocessing script expects paths to both repositories and to the required checkpoints.
+Example:
 
-## Height-map generation
+```bash
+git clone https://github.com/IDEA-Research/Grounded-SAM-2.git
+git clone https://github.com/apple/ml-depth-pro.git
+```
 
-The generator writes output in this structure:
+A clean workspace might look like this:
+
+```text
+workspace/
+├── heightmap-fall-detection/
+├── Grounded-SAM-2/
+└── ml-depth-pro/
+```
+
+## Required Checkpoints
+
+Before running preprocessing, you need local paths to:
+
+- `depth_pro.pt`
+- a SAM2 checkpoint such as `sam2.1_hiera_large.pt`
+
+This repository does not auto-download checkpoints.
+
+## End-to-End Pipeline
+
+The full workflow is:
+
+1. Prepare Python environment
+2. Prepare `Grounded-SAM-2` and `ml-depth-pro`
+3. Download checkpoints
+4. Run height-map generation for `Fall`
+5. Run height-map generation for `NonFall`
+6. Train the fall detector
+
+## Input Video Organization
+
+Your raw videos can be stored in any layout. The preprocessing script recursively discovers video files under the given input path.
+
+Example raw input:
+
+```text
+raw_videos/
+├── RFDS/
+│   ├── fall/
+│   └── normal/
+├── URFD/
+│   ├── Fall/
+│   └── ADL/
+└── Le2i/
+    ├── office/
+    └── home/
+```
+
+## Generated Height-Map Dataset Format
+
+The preprocessing script writes data in this structure:
 
 ```text
 <output-root>/
@@ -64,13 +176,21 @@ The generator writes output in this structure:
 │   └── <video-name>/
 │       └── track_<id>/
 │           ├── 00000.npy
+│           ├── 00001.npy
 │           └── ...
 └── NonFall/
     └── <video-name>/
         └── track_<id>/
+            ├── 00000.npy
+            ├── 00001.npy
+            └── ...
 ```
 
-Example:
+This generated structure is the direct input to the training code.
+
+## Height-Map Generation
+
+Example for positive videos:
 
 ```bash
 python scripts/generate_heightmaps.py \
@@ -86,11 +206,31 @@ python scripts/generate_heightmaps.py \
   --depth-device cuda:1
 ```
 
-Run the same command with `--label NonFall` for negative videos.
+Example for negative videos:
+
+```bash
+python scripts/generate_heightmaps.py \
+  --input /path/to/RFDS/normal \
+  --output-root ./datasets/rfds \
+  --preview-root ./previews/rfds \
+  --label NonFall \
+  --grounded-sam2-root /path/to/Grounded-SAM-2 \
+  --depth-pro-root /path/to/ml-depth-pro \
+  --depth-pro-checkpoint /path/to/ml-depth-pro/checkpoints/depth_pro.pt \
+  --sam2-checkpoint /path/to/Grounded-SAM-2/checkpoints/sam2.1_hiera_large.pt \
+  --tracking-device cuda:0 \
+  --depth-device cuda:1
+```
+
+Notes:
+
+- `--input` can be a single video file or a directory
+- `--preview-root` is optional
+- `--tracking-device` and `--depth-device` can target different GPUs
 
 ## Training
 
-Train with a dataset preset:
+After generating height maps:
 
 ```bash
 python scripts/train.py --config rfds --root-dir ./datasets/rfds
@@ -103,8 +243,23 @@ Each run writes:
 - fold checkpoints
 - `summary.json` with fold-wise and mean metrics
 
-## Notes for GitHub release
+## Common Failure Points
 
-- Keep this repository separate from your experimental `Grounded-SAM-2` tree.
-- Do not commit raw datasets, previews, or `.npy` outputs.
-- If you want a cleaner public history, initialize a fresh Git repo from this folder and commit only these files.
+- `ModuleNotFoundError`
+  Activate `.venv` first.
+- checkpoint path errors
+  Verify `--depth-pro-checkpoint` and `--sam2-checkpoint`.
+- CUDA errors
+  Check `--tracking-device` and `--depth-device`.
+- empty training dataset
+  Verify the generated files follow `Fall/<video>/track_*/00000.npy`.
+
+## Notes
+
+- Keep this repository separate from your experimental `Grounded-SAM-2` workspace.
+- Do not commit raw datasets, previews, or generated `.npy` outputs.
+- This public repository is intended to contain code and documentation only.
+
+## Citation
+
+Add the paper citation here after release.

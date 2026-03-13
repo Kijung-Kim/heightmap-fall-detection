@@ -22,4 +22,6 @@ failed_videos.log
 *.avi
 *.mov
 *.mkv
-
+!assets/*.png
+!assets/*.jpg
+!assets/*.jpeg
